@@ -1,0 +1,75 @@
+/* Design tokens. Every colour, size and duration used elsewhere comes from here. */
+:root {
+  color-scheme: dark;
+
+  /* Space palette */
+  --color-void: #07060b;
+  --color-space: #0c0a12;
+  --color-panel: #12101a;
+  --color-panel-alpha: rgb(18 16 26 / 0.86);
+  --color-raised: #1c1826;
+
+  /* Text (contrast ratios are verified in contrast.test.js) */
+  --color-text: #f5ead8;
+  --color-text-muted: #c2b8a8;
+
+  /* Accents */
+  --color-accent: #e08a3c;
+  --color-accent-strong: #c67139;
+  --color-accent-hover: #d9823f;
+  --color-on-accent: #1a1007;
+  --color-sage: #aebf92;
+  --color-danger: #f0917a;
+
+  /* Task colours */
+  --priority-high: #e08a3c;
+  --priority-medium: #ddb264;
+  --priority-low: #aebf92;
+  --color-done: #8ea073;
+
+  /* Lines and fills */
+  --color-border: rgb(245 234 216 / 0.2);
+  --color-border-strong: rgb(245 234 216 / 0.4);
+  --color-fill: rgb(245 234 216 / 0.07);
+  --color-fill-hover: rgb(245 234 216 / 0.14);
+
+  /* Type */
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.75rem;
+  --text-hero: clamp(2rem, 1.4rem + 2.4vw, 2.75rem);
+
+  /* Space */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+
+  /* Shape */
+  --radius-sm: 0.75rem;
+  --radius-md: 1.25rem;
+  --radius-lg: 1.75rem;
+  --radius-pill: 999px;
+  --tap-target: 2.75rem;
+  --shadow-lg: 0 30px 80px rgb(0 0 0 / 0.6);
+
+  /* Motion */
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Stronger lines and text for people who ask their OS for more contrast. */
+@media (prefers-contrast: more) {
+  :root {
+    --color-border: rgb(245 234 216 / 0.6);
+    --color-border-strong: #f5ead8;
+    --color-text-muted: #ece2d2;
+  }
+}

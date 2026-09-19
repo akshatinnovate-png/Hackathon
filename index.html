@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>FocusList — turn your to-do list into a constellation</title>
+  <meta name="description" content="FocusList is an offline-ready task manager. Every task is a star in a live constellation, and finishing tasks lights the focus core. Includes priorities, due dates, search, filters, undo and a focus timer.">
+  <meta name="theme-color" content="#07060b">
+  <meta name="color-scheme" content="dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="FocusList — a task manager shaped like a night sky">
+  <meta property="og:description" content="Every task is a star. Finish them to light the core.">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="layout.css">
+  <link rel="stylesheet" href="components.css">
+  <link rel="modulepreload" href="main.js">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to tasks</a>
+  <canvas id="starfield" class="starfield" aria-hidden="true"></canvas>
+
+  <div class="app">
+    <header class="app-header">
+      <div class="brand">
+        <h1 class="brand__name">FocusList</h1>
+        <p class="brand__tagline">Every task is a star. Finish them to light the core.</p>
+      </div>
+      <div class="header-actions">
+        <div class="btn-group" role="group" aria-label="Constellation view">
+          <button type="button" id="zoom-out" class="icon-btn" aria-label="Zoom out" title="Zoom out (−)"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-minus"/></svg></button>
+          <button type="button" id="zoom-in" class="icon-btn" aria-label="Zoom in" title="Zoom in (+)"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-plus"/></svg></button>
+          <button type="button" id="zoom-reset" class="btn btn--ghost btn--sm" title="Reset view (0)">Reset view</button>
+        </div>
+        <div class="btn-group" role="group" aria-label="Data and help">
+          <button type="button" id="export-btn" class="icon-btn" aria-label="Export tasks as JSON" title="Export tasks"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-download"/></svg></button>
+          <button type="button" id="import-btn" class="icon-btn" aria-label="Import tasks from JSON" title="Import tasks"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-upload"/></svg></button>
+          <button type="button" id="help-btn" class="icon-btn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-keyboard"/></svg></button>
+        </div>
+        <input type="file" id="import-file" accept="application/json,.json" hidden>
+      </div>
+    </header>
+
+    <main id="main" class="layout" tabindex="-1">
+      <section class="panel panel--sky" aria-labelledby="sky-title">
+        <h2 id="sky-title" class="sr-only">Task constellation</h2>
+        <div class="sky">
+          <canvas id="constellation" class="sky__canvas" role="img" aria-label="Constellation of your tasks. The task list is the accessible equivalent of this picture."></canvas>
+          <div id="constellation-tip" class="tooltip" hidden></div>
+        </div>
+
+        <dl class="stats" aria-label="Task totals">
+          <div class="stat"><dt>Total</dt><dd id="stat-total">0</dd></div>
+          <div class="stat stat--done"><dt>Completed</dt><dd id="stat-done">0</dd></div>
+          <div class="stat stat--pending"><dt>Pending</dt><dd id="stat-pending">0</dd></div>
+          <div class="stat stat--overdue"><dt>Overdue</dt><dd id="stat-overdue">0</dd></div>
+        </dl>
+
+        <div id="selection" class="selection" role="region" aria-label="Selected task" hidden>
+          <div class="selection__head">
+            <span id="sel-dot" class="dot" aria-hidden="true"></span>
+            <div class="selection__text">
+              <h3 id="sel-title" class="selection__title"></h3>
+              <p id="sel-meta" class="selection__meta"></p>
+              <p id="sel-notes" class="selection__notes" hidden></p>
+            </div>
+            <button type="button" class="icon-btn icon-btn--sm" data-sel-action="close" aria-label="Close task detail"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-x"/></svg></button>
+          </div>
+          <div class="selection__actions">
+            <button type="button" class="btn btn--primary btn--sm" data-sel-action="toggle" id="sel-toggle">Mark complete</button>
+            <button type="button" class="btn btn--ghost btn--sm" data-sel-action="edit">Edit</button>
+            <button type="button" class="btn btn--danger btn--sm" data-sel-action="delete">Delete</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="stack">
+        <section class="panel panel--new" aria-labelledby="new-heading">
+          <h2 id="new-heading" class="panel__title">New task</h2>
+          <form id="new-form" class="form" novalidate>
+            <div class="form__row">
+              <div class="field field--grow">
+                <label for="new-title" class="field__label">Title</label>
+                <input id="new-title" name="title" class="input" type="text" maxlength="120" autocomplete="off" placeholder="What deserves your focus?" aria-describedby="new-error" required>
+              </div>
+              <div class="field">
+                <label for="new-due" class="field__label">Due date <span class="field__hint">(optional)</span></label>
+                <input id="new-due" name="due" class="input" type="date">
+              </div>
+            </div>
+            <fieldset class="pill-group">
+              <legend class="field__label">Priority</legend>
+              <label class="pill" data-priority="high"><input type="radio" name="priority" value="high"><span>High</span></label>
+              <label class="pill" data-priority="medium"><input type="radio" name="priority" value="medium" checked><span>Medium</span></label>
+              <label class="pill" data-priority="low"><input type="radio" name="priority" value="low"><span>Low</span></label>
+            </fieldset>
+            <p id="new-error" class="form__error" role="alert"></p>
+            <button type="submit" class="btn btn--primary">Add task</button>
+          </form>
+        </section>
+
+        <section class="panel panel--timer" id="timer-panel" aria-labelledby="timer-heading">
+          <h2 id="timer-heading" class="panel__title">Focus timer</h2>
+          <div class="timer">
+            <p id="timer-clock" class="timer__clock" role="timer" aria-label="Time remaining">25:00</p>
+            <div class="timer__controls">
+              <div class="field field--grow">
+                <label for="timer-task" class="field__label">Working on</label>
+                <select id="timer-task" class="input"></select>
+              </div>
+              <fieldset class="pill-group pill-group--tight">
+                <legend class="field__label">Minutes</legend>
+                <label class="pill"><input type="radio" name="minutes" value="15"><span>15</span></label>
+                <label class="pill"><input type="radio" name="minutes" value="25" checked><span>25</span></label>
+                <label class="pill"><input type="radio" name="minutes" value="50"><span>50</span></label>
+              </fieldset>
+            </div>
+            <div class="timer__buttons">
+              <button type="button" id="timer-toggle" class="btn btn--primary">Start focus</button>
+              <button type="button" id="timer-reset" class="btn btn--ghost">Reset</button>
+            </div>
+            <p id="timer-status" class="timer__status">Pick a task and start a session. Finished sessions add to that task's focus time.</p>
+          </div>
+        </section>
+
+        <section class="panel panel--filters" aria-labelledby="filter-heading">
+          <h2 id="filter-heading" class="panel__title">Find and sort</h2>
+          <div class="form">
+            <div class="field">
+              <label for="search" class="field__label">Search tasks</label>
+              <input id="search" class="input" type="search" placeholder="Search titles and notes" autocomplete="off">
+            </div>
+            <fieldset class="pill-group">
+              <legend class="field__label">Status</legend>
+              <label class="pill"><input type="radio" name="status" value="all" checked><span>All</span></label>
+              <label class="pill"><input type="radio" name="status" value="active"><span>Active</span></label>
+              <label class="pill"><input type="radio" name="status" value="completed"><span>Completed</span></label>
+            </fieldset>
+            <fieldset class="pill-group">
+              <legend class="field__label">Priority filter</legend>
+              <label class="pill"><input type="radio" name="fprio" value="all" checked><span>Any</span></label>
+              <label class="pill" data-priority="high"><input type="radio" name="fprio" value="high"><span>High</span></label>
+              <label class="pill" data-priority="medium"><input type="radio" name="fprio" value="medium"><span>Medium</span></label>
+              <label class="pill" data-priority="low"><input type="radio" name="fprio" value="low"><span>Low</span></label>
+            </fieldset>
+            <div class="form__row form__row--end">
+              <div class="field field--grow">
+                <label for="sort" class="field__label">Sort by</label>
+                <select id="sort" class="input">
+                  <option value="manual">Order added</option>
+                  <option value="newest">Newest first</option>
+                  <option value="priority">Priority</option>
+                  <option value="due">Due date</option>
+                </select>
+              </div>
+              <button type="button" id="clear-completed" class="btn btn--ghost btn--sm">Clear completed</button>
+            </div>
+            <p id="result-count" class="muted" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section class="panel panel--dist" aria-labelledby="dist-heading">
+          <h2 id="dist-heading" class="panel__title">Priority distribution</h2>
+          <ul class="dist">
+            <li class="dist__row" data-priority="high"><span class="dist__label">High</span><span class="dist__bar" aria-hidden="true"><span class="dist__fill"></span></span><span class="dist__count">0</span></li>
+            <li class="dist__row" data-priority="medium"><span class="dist__label">Medium</span><span class="dist__bar" aria-hidden="true"><span class="dist__fill"></span></span><span class="dist__count">0</span></li>
+            <li class="dist__row" data-priority="low"><span class="dist__label">Low</span><span class="dist__bar" aria-hidden="true"><span class="dist__fill"></span></span><span class="dist__count">0</span></li>
+          </ul>
+        </section>
+
+        <section class="panel panel--list" aria-labelledby="list-heading">
+          <h2 id="list-heading" class="panel__title">Tasks</h2>
+          <div id="empty-state" class="empty" hidden>
+            <div class="empty__glow" aria-hidden="true"></div>
+            <p id="empty-title" class="empty__title"></p>
+            <p id="empty-body" class="muted"></p>
+          </div>
+          <ul id="task-list" class="task-list"></ul>
+        </section>
+      </div>
+    </main>
+
+    <footer class="app-footer">
+      <p>Saved on this device only. Press <kbd>?</kbd> for keyboard shortcuts.</p>
+    </footer>
+  </div>
+
+  <dialog id="edit-dialog" class="dialog" aria-labelledby="edit-heading">
+    <form id="edit-form" class="form" novalidate>
+      <h2 id="edit-heading" class="dialog__title">Edit task</h2>
+      <div class="field">
+        <label for="edit-title" class="field__label">Title</label>
+        <input id="edit-title" class="input" type="text" maxlength="120" autocomplete="off" aria-describedby="edit-error" required>
+      </div>
+      <div class="field">
+        <label for="edit-due" class="field__label">Due date <span class="field__hint">(optional)</span></label>
+        <input id="edit-due" class="input" type="date">
+      </div>
+      <fieldset class="pill-group">
+        <legend class="field__label">Priority</legend>
+        <label class="pill" data-priority="high"><input type="radio" name="edit-priority" value="high"><span>High</span></label>
+        <label class="pill" data-priority="medium"><input type="radio" name="edit-priority" value="medium"><span>Medium</span></label>
+        <label class="pill" data-priority="low"><input type="radio" name="edit-priority" value="low"><span>Low</span></label>
+      </fieldset>
+      <div class="field">
+        <label for="edit-notes" class="field__label">Notes <span class="field__hint">(optional)</span></label>
+        <textarea id="edit-notes" class="input input--area" maxlength="500" rows="3"></textarea>
+      </div>
+      <p id="edit-error" class="form__error" role="alert"></p>
+      <div class="dialog__actions">
+        <button type="button" class="btn btn--ghost" data-close>Cancel</button>
+        <button type="submit" class="btn btn--primary">Save changes</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="help-dialog" class="dialog" aria-labelledby="help-heading">
+    <h2 id="help-heading" class="dialog__title">Keyboard shortcuts</h2>
+    <p class="muted">Shortcuts are paused while you type in a field.</p>
+    <table class="shortcuts">
+      <caption class="sr-only">Keyboard shortcuts</caption>
+      <thead><tr><th scope="col">Key</th><th scope="col">Action</th></tr></thead>
+      <tbody>
+        <tr><td><kbd>N</kbd></td><td>Add a new task</td></tr>
+        <tr><td><kbd>/</kbd></td><td>Search tasks</td></tr>
+        <tr><td><kbd>+</kbd> / <kbd>−</kbd></td><td>Zoom the constellation</td></tr>
+        <tr><td><kbd>0</kbd></td><td>Reset the view</td></tr>
+        <tr><td><kbd>Ctrl</kbd> + <kbd>Z</kbd></td><td>Undo the last delete</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Close a dialog or the task detail</td></tr>
+        <tr><td><kbd>?</kbd></td><td>Show this list</td></tr>
+      </tbody>
+    </table>
+    <div class="dialog__actions"><button type="button" class="btn btn--primary" data-close>Got it</button></div>
+  </dialog>
+
+  <div id="toast" class="toast" hidden>
+    <p id="toast-msg" class="toast__msg"></p>
+    <button type="button" id="toast-action" class="btn btn--ghost btn--sm">Undo</button>
+  </div>
+  <div id="announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+  <noscript><p class="noscript">FocusList needs JavaScript to run. Enable it and reload the page.</p></noscript>
+
+  <svg xmlns="http://www.w3.org/2000/svg" class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 21h16"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V3m0 0L8 7m4-4 4 4M4 21h16"/></symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24"><path d="M3 6h18v12H3ZM7 10h.01M11 10h.01M15 10h.01M7 14h10"/></symbol>
+  </svg>
+
+  <template id="task-template">
+    <li class="task">
+      <input class="task__check" type="checkbox">
+      <button type="button" class="task__body" data-action="select">
+        <span class="task__title"></span>
+        <span class="task__meta"></span>
+      </button>
+      <div class="task__actions">
+        <button type="button" class="icon-btn icon-btn--sm" data-action="edit"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-pencil"/></svg></button>
+        <button type="button" class="icon-btn icon-btn--sm icon-btn--danger" data-action="delete"><svg class="icon" aria-hidden="true" focusable="false"><use href="#i-trash"/></svg></button>
+      </div>
+    </li>
+  </template>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>

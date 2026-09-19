@@ -1,0 +1,19 @@
+{
+  "name": "focuslist",
+  "version": "2.0.0",
+  "description": "An offline-ready task manager where every task is a star in a live constellation.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node serve.js",
+    "test": "node --test",
+    "lint": "eslint .",
+    "check": "npm run lint && npm test"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0"
+  }
+}
